@@ -5,8 +5,11 @@
 #include <string>
 #include <vector>
 #include <assert.h>
+#include <filesystem>
+#include <fstream>
 
 using namespace std;
+namespace fs = std::filesystem;
 
 struct Rule
 {
@@ -54,16 +57,16 @@ struct Rule
 bool replace(string& x, Rule& rule);
 
 //finds index of applicable rule
-int applicable_index(string& x, vector<Rule>& ruls);
+int applicable_index(string& x);
 
 //executes one step of markov algorithm
-bool ma_step(string& x, vector<Rule>& subs, bool output_enabled);
+bool ma_step(string& x);
 
 //executes markov algorithm
-void ma(string& x, vector<Rule>& subs, bool output_enabled);
+void ma(string& x);
 
 //for inputting rules of algorithm
-void input_subs(std::vector<Rule>& subs);
+void input_subs();
 
 //runs the process
 void run();

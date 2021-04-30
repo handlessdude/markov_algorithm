@@ -1,11 +1,18 @@
 #include "MarkovAlgorithm.h"
 
-void input_subs(std::vector<Rule>& subs)
+bool file_write_enabled;
+bool calc_output_enabled;
+std::vector<Rule> ruls;
+string filename;
+std::ofstream writeto;
+
+void input_subs()
 {
-	subs.clear();
+	ruls.clear();
 
 	std::cout << "\nPlease enter your rules in format \"P->Q\" or \"P->.Q\" if rule is final:\n"
-		<< "(input empty string to finish)\n\n";
+		<< "[input empty string to finish]\n"
+		<< "[if it's needed to enter empty word as a side of the rule just enter nothing there]\n\n";
 	std::string s;
 input_label:
 	int i = 1;
@@ -18,7 +25,7 @@ input_label:
 		}
 		try
 		{
-			subs.push_back(Rule(s));
+			ruls.push_back(Rule(s));
 		}
 		catch (std::exception e)
 		{
@@ -27,24 +34,146 @@ input_label:
 		}
 		std::cout << "\n" << ++i << ")";
 	}
-	if (!subs.size())
+	if (!ruls.size())
 	{
 		std::cout << "\nPlease unput at least one rule...\n\n";
 		goto input_label;
 	}
 }
 
+//===============================================================
+
+//executes one substitution
+bool replace(string& x, Rule& rule)
+{
+	string& from = rule.P;
+	string& to = rule.Q;
+	size_t start_pos = x.find(from);
+	if (start_pos == string::npos)
+	{
+		return false;
+	}
+	x.replace(start_pos, from.length(), to);
+	return true;
+}
+
+//finds index of applicable rule
+int applicable_index(string& x)
+{
+	for (size_t i = 0; i < ruls.size(); i += 1)
+	{
+		if (x.find(ruls[i].P) != string::npos)
+		{
+			return i;
+		}
+	}
+	return string::npos;
+}
+
+//executes one step of markov algorithm
+bool ma_step(string& x)
+{
+	int index = applicable_index(x);
+	if (index != string::npos)
+	{
+		if (calc_output_enabled)
+		{
+			cout << "Found applicable rule: " << index + 1 << ")" << ruls[index] << "\n";
+			if (file_write_enabled)
+			{
+				writeto << "Found applicable rule: " << index + 1 << ")" << ruls[index] << "\n";
+			}
+		}
+
+		if (ruls[index].P == "")
+		{
+			x.insert(0, ruls[index].Q);
+		}
+		else
+		{
+			replace(x, ruls[index]);
+		}
+
+		if (calc_output_enabled)
+		{
+			cout << "String after applying: " << x << "\n\n";
+			if (file_write_enabled)
+			{
+				writeto << "String after applying: " << x << "\n\n";
+			}
+		}
+		return ruls[index].is_terminal;
+	}
+	if (calc_output_enabled)
+	{
+		cout << "No applicable rule found.\n\n";
+		if (file_write_enabled)
+		{
+			writeto << "No applicable rule found.\n\n";
+		}
+	}
+
+	return true;
+}
+
+//executes markov algorithm
+void ma(string& x)
+{
+	bool is_terminal = false;
+	int i = 1;
+	while (!is_terminal)
+	{
+		if (calc_output_enabled)
+		{
+			cout << i << ") ";
+			if (file_write_enabled)
+			{
+				writeto << i << ") ";
+			}
+			i++;
+		}
+		is_terminal = ma_step(x);
+	}
+}
+
+void write_rules_to_file()
+{
+	writeto << "Algorithm scheme:\n\n";
+	int i = 1;
+	for (auto& rule : ruls)
+	{
+		writeto << (i++) << ")" << rule << "\n";
+	}
+	writeto << "\n ================ \n\n";
+}
+
+//===============================================================
+
 void run()
 {
-	bool output_enabled;
 	std::string s;
-	std::vector<Rule> ruls;
-
+	
 start_label:
 	//===============enabling output
 	cout << " =========== START ===========\nEnable calculations output? (y = yes, no = any other key): ";
 	std::getline(std::cin, s);
-	output_enabled = (s == "y");
+	calc_output_enabled = (s == "y");
+
+	//enabling saving to file
+	cout << "Enable saving output in file? (y = yes, no = any other key): ";
+	std::getline(std::cin, s);
+	file_write_enabled = (s == "y");
+	if (file_write_enabled)
+	{
+		cout << "Enter filename: ";
+		std::getline(std::cin, filename);
+		while(fs::exists(fs::current_path().u8string() + "/" + filename))
+		{
+			cout << "File already exists in the current folder. Choose another name: ";
+			std::getline(std::cin, filename);
+		}
+		writeto.open(filename);
+	}
 
 	//===============reentering rules
 	if (ruls.size())
@@ -53,25 +182,49 @@ start_label:
 		std::getline(std::cin, s);
 		if (s == "y")
 		{
-			input_subs(ruls);
+			input_subs();
 		}
 	}
 	else
 	{
-		input_subs(ruls);
+		input_subs();
 	}
-	
+
+	if (file_write_enabled)
+	{
+		write_rules_to_file();
+	}
+
 	//===============entering new string
 	cout << "\nEnter the string to process:\n";
 	std::getline(std::cin, s);
-
-	if (output_enabled)
+	if (file_write_enabled)
 	{
-		cout << "\nString process started:\n\n";
+		writeto << "String to process:\n" << s << "\n\n ================ \n\n";
 	}
-	ma(s, ruls, output_enabled);
+
+	if (calc_output_enabled)
+	{
+		cout << "\nString process started.\n\n";
+		if (file_write_enabled)
+		{
+			writeto << "String processing steps:\n\n";
+		}
+	}
+
+	ma(s);
 
 	//===============result output
+	if (file_write_enabled)
+	{
+		if (calc_output_enabled)
+		{
+			writeto << " ================ \n\n";
+		}
+		writeto << "Processed string:\n" << s << "\n";
+		writeto.close();
+	}
+
 	cout << "\nProcessed string:\n" << s<< "\n\nAnother one? (y = yes, no = any other key): ";
 	std::getline(std::cin, s);
 	if (s == "y")
@@ -87,184 +240,12 @@ int main()
 {
 	setlocale(LC_ALL, "Russian");
 
-	cout << "[tip: if it's needed to enter empty word as a side of the rule just enter nothing there]\n\n";
 	run();
-
-	//EXAMPLE OF PROGRAM WORKING CYCLE:
-
 	/*
-[tip: if it's needed to enter empty word as a side of the rule just enter nothing there]
-
- =========== START ===========
-Enable calculations output? (y = yes, no = any other key): y
-
-Please enter your rules in format "P->Q" or "P->.Q" if rule is final:
-(input empty string to finish)
-
-1)->.test1
-
-2)
-
-Enter the string to process:
-vsem perviy privet!
-
-String process started:
-
-Found applicable rule: 1)<empty>->.test1
-String after applying: test1vsem perviy privet!
-
-
-Processed string:
-test1vsem perviy privet!
-
-Another one? (y = yes, no = any other key): y
-
- =========== START ===========
-Enable calculations output? (y = yes, no = any other key): n
-Enter new rules? (y = yes, no = any other key): n
-
-Enter the string to process:
-privet mne i moemu drugu toje!
-
-Processed string:
-test1privet mne i moemu drugu toje!
-
-Another one? (y = yes, no = any other key): y
-
- =========== START ===========
-Enable calculations output? (y = yes, no = any other key): y
-Enter new rules? (y = yes, no = any other key): y
-
-Please enter your rules in format "P->Q" or "P->.Q" if rule is final:
-(input empty string to finish)
-
-1)ab->
-
-2)a->b
-
-3)
-
-Enter the string to process:
-aababab
-
-String process started:
-
-Found applicable rule: 1)ab->
-String after applying: aabab
-
-Found applicable rule: 1)ab->
-String after applying: aab
-
-Found applicable rule: 1)ab->
-String after applying: a
-
-Found applicable rule: 2)a->b
-String after applying: b
-
-No applicable rule found.
-
-
-Processed string:
-b
-
-Another one? (y = yes, no = any other key): y
-
- =========== START ===========
-Enable calculations output? (y = yes, no = any other key): y
-Enter new rules? (y = yes, no = any other key): y
-
-Please enter your rules in format "P->Q" or "P->.Q" if rule is final:
-(input empty string to finish)
-
-1)b->.a
-
-2)a->b
-
-3)
-
-Enter the string to process:
-aaa
-
-String process started:
-
-Found applicable rule: 2)a->b
-String after applying: baa
-
-Found applicable rule: 1)b->.a
-String after applying: aaa
-
-
-Processed string:
-aaa
-
-Another one? (y = yes, no = any other key): y
-
- =========== START ===========
-Enable calculations output? (y = yes, no = any other key): y
-Enter new rules? (y = yes, no = any other key): y
-
-Please enter your rules in format "P->Q" or "P->.Q" if rule is final:
-(input empty string to finish)
-
-1)1->0|
-
-2)|0->0||
-
-3)0->
-
-4)
-
-Enter the string to process:
-101
-
-String process started:
-
-Found applicable rule: 1)1->0|
-String after applying: 0|01
-
-Found applicable rule: 1)1->0|
-String after applying: 0|00|
-
-Found applicable rule: 2)|0->0||
-String after applying: 00||0|
-
-Found applicable rule: 2)|0->0||
-String after applying: 00|0|||
-
-Found applicable rule: 2)|0->0||
-String after applying: 000|||||
-
-Found applicable rule: 3)0->
-String after applying: 00|||||
-
-Found applicable rule: 3)0->
-String after applying: 0|||||
-
-Found applicable rule: 3)0->
-String after applying: |||||
-
-No applicable rule found.
-
-
-Processed string:
-|||||
-
-Another one? (y = yes, no = any other key): y
-
- =========== START ===========
-Enable calculations output? (y = yes, no = any other key): n
-Enter new rules? (y = yes, no = any other key): n
-
-Enter the string to process:
-101
-
-Processed string:
-|||||
-
-Another one? (y = yes, no = any other key): n
-
- =========== PROCESS FINISHED ===========
+	
+	
 	*/
 	system("pause");
+
 	return 0;
 }
