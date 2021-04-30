@@ -1,5 +1,6 @@
 # markov_algorithm
 [tip: it is highly recommended to not launch .exe file in folder the path of which contains cyrillic symbols.]
+[the latest release (0.2) could be found in "Releases" section]
 
 EXAMPLE OF PROGRAM WORKING LOOP OUTPUT:
 
